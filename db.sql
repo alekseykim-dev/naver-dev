@@ -1,0 +1,10 @@
+CREATE TABLE daily (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  startDate DATE NOT NULL,
+  endDate DATE NOT NULL,
+  timeUnit VARCHAR(10) NOT NULL,
+  keywordGroups TEXT NOT NULL,
+  device VARCHAR(10) NOT NULL,
+  ages TEXT NOT NULL,
+  gender VARCHAR(1) NOT NULL
+);
