@@ -13,18 +13,21 @@
 -- ALTER TABLE daily MODIFY COLUMN data MEDIUMTEXT NOT NULL;
 
 CREATE TABLE daily (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  startDate DATE NOT NULL,
-  endDate DATE NOT NULL,
   timeUnit VARCHAR(10) NOT NULL,
-  groupName TEXT,
   keywords TEXT NOT NULL,
-  data TEXT NOT NULL,
-  device VARCHAR(10) NOT NULL,
-  ages TEXT NOT NULL,
-  gender VARCHAR(1) NOT NULL,
-  period DATE,
-  ratio DECIMAL(10, 5)
+  period DATE NOT NULL,
+  ratio VARCHAR(10) NOT NULL,
+  insertedDate DATE NOT NULL
 );
 
+
+
+-- CREATE TABLE daily (
+--   id INT AUTO_INCREMENT PRIMARY KEY,
+--   timeUnit VARCHAR(10) NOT NULL,
+--   groupName VARCHAR(255) NOT NULL,
+--   keywords TEXT NOT NULL,
+--   period DATE,
+--   ratio DECIMAL(10, 5)
+-- );
 

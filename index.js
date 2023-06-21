@@ -30,7 +30,7 @@ const api_url = "https://openapi.naver.com/v1/datalab/search";
 
 const request_body = {
   startDate: "2016-01-01",
-  endDate: "2023-06-19",
+  endDate: "2023-06-20",
   timeUnit: "date",
   keywordGroups: [
     {
@@ -41,71 +41,61 @@ const request_body = {
   device: "",
   ages: ["1"],
   gender: "",
-};
+}; 
 
 app.listen(3000, async () => {
   console.log("Server is running on PORT 3000");
 
-  request.post(
-    {
-      url: api_url,
-      body: JSON.stringify(request_body),
+  try {
+    const { data } = await axios.post(api_url, request_body, {
       headers: {
         "X-Naver-Client-Id": client_id,
         "X-Naver-Client-Secret": client_secret,
         "Content-Type": "application/json",
       },
-    },
-    async function (error, response, body) {
-      if (error) {
-        console.error("Error requesting data from API:", error);
-        return;
-      }
+    });
 
-      if (response.statusCode === 200) {
-        const responseData = JSON.parse(body);
+    const keywordGroups = data.results;
+    const timeUnit = data.timeUnit;
+    const device = "";
 
-        // Extract the relevant data from the response
-        const keywordGroups = responseData.results;
-        const data = {
-          startDate: responseData.startDate,
-          endDate: responseData.endDate,
-          timeUnit: responseData.timeUnit,
-          device: "",
-          ages: [""],
-          gender: "",
-        };
+    try {
+      const conn = await pool.getConnection();
 
-        try {
-          const conn = await pool.getConnection();
+      // const insertQuery =
+      // "INSERT INTO daily (timeUnit, keywords, period, ratio, insertedDate) VALUES (?, ?, ?, ?, CURDATE())";
+  
+      // for (const keywordGroup of keywordGroups) {
+      //   for (const { period, ratio } of keywordGroup.data) {
+      //     await conn.query(insertQuery, [
+      //       timeUnit,
+      //       keywordGroup.keywords, 
+      //       period,
+      //       ratio
+      //     ]);
+      //   }
+      // }
 
-          // Insert data into the 'daily' table for each data point
-          const insertQuery =
-            "INSERT INTO daily (startDate, endDate, timeUnit, groupName, keywords, data, device, ages, gender) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
-          for (const keywordGroup of keywordGroups) {
-            for (const { period, ratio } of keywordGroup.data) {
-              await conn.query(insertQuery, [
-                data.startDate,
-                data.endDate,
-                data.timeUnit,
-                keywordGroup.groupName || "", // Provide an empty string if groupName is undefined or null
-                JSON.stringify(keywordGroup.keywords),
-                JSON.stringify({ period, ratio }),
-                data.device,
-                JSON.stringify(data.ages),
-                data.gender,
-              ]);
-            }
-          }
-
-          conn.release();
-          console.log("Data inserted into the database");
-        } catch (error) {
-          console.error("Error inserting data into the database:", error);
+      const insertQuery =
+        "INSERT INTO daily (timeUnit, keywords, period, ratio, insertedDate) VALUES (?, ?, ?, ?, CURDATE())";
+      for (const keywordGroup of keywordGroups) {
+        for (const { period, ratio } of keywordGroup.data) {
+          await conn.query(insertQuery, [
+            timeUnit,
+            keywordGroup.keywords, // Insert as string
+            period,
+            ratio,
+          ]);
         }
-      } else {
-        console.log("API request failed with status code", response.statusCode);
       }
+
+
+      conn.release();
+      console.log("Data inserted into the database");
+    } catch (error) {
+      console.error("Error inserting data into the database:", error);
     }
-  );
+  } catch (error) {
+    console.error("Error requesting data from API:", error.response?.data || error.message);
+  }
 });
