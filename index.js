@@ -1,15 +1,16 @@
 const express = require("express");
+require('dotenv').config();
 const mariadb = require("mariadb");
 const axios = require("axios");
 const request = require("request");
 
 const app = express();
 const pool = mariadb.createPool({
-  host: "localhost",
-  user: "admin",
-  password: "tpkris56w",
-  database: "dynafit",
-  port: "3306",
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_DATABASE,
+  port: process.env.DB_PORT,
 });
 
 pool
