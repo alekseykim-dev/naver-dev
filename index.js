@@ -36,7 +36,7 @@ const request_body = {
   keywordGroups: [
     {
       groupName: "한글",
-      keywords: ["Apple"],
+      keywords: ["서울"],
     },
   ],
   device: "",
