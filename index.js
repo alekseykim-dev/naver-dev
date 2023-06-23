@@ -24,18 +24,18 @@ pool
     console.error("Error connecting to the database:", error);
   });
 
-const client_id = "Ly5cZOwWEEa8CD2HstRL";
-const client_secret = "1RAG48llzh";
+const client_id = "ydW3Klw44WWR61PEHJCY";
+const client_secret = "GtmR8inH9d";
 const api_url = "https://openapi.naver.com/v1/datalab/search";
 
 const request_body = {
   startDate: "2016-01-01",
-  endDate: "2023-06-20",
+  endDate: "2023-06-22",
   timeUnit: "date",
   keywordGroups: [
     {
       groupName: "한글",
-      keywords: ["한글"],
+      keywords: ["Apple"],
     },
   ],
   device: "",

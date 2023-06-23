@@ -21,6 +21,8 @@ CREATE TABLE daily (
 );
 
 
+  -- alter table daily add realNum VARCHAR(10) NOT NULL
+
 
 -- CREATE TABLE daily (
 --   id INT AUTO_INCREMENT PRIMARY KEY,
