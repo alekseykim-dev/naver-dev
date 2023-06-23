@@ -39,9 +39,6 @@ const request_body = {
       keywords: ["서울"],
     },
   ],
-  device: "",
-  ages: ["1"],
-  gender: "",
 }; 
 
 app.listen(3000, async () => {
@@ -63,19 +60,6 @@ app.listen(3000, async () => {
     try {
       const conn = await pool.getConnection();
 
-      // const insertQuery =
-      // "INSERT INTO daily (timeUnit, keywords, period, ratio, insertedDate) VALUES (?, ?, ?, ?, CURDATE())";
-  
-      // for (const keywordGroup of keywordGroups) {
-      //   for (const { period, ratio } of keywordGroup.data) {
-      //     await conn.query(insertQuery, [
-      //       timeUnit,
-      //       keywordGroup.keywords, 
-      //       period,
-      //       ratio
-      //     ]);
-      //   }
-      // }
 
       const insertQuery =
         "INSERT INTO daily (timeUnit, keywords, period, ratio, insertedDate) VALUES (?, ?, ?, ?, CURDATE())";
