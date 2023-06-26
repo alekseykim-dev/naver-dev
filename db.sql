@@ -17,8 +17,12 @@ CREATE TABLE IF NOT EXISTS daily (
   keywords TEXT NOT NULL,
   period DATE NOT NULL,
   ratio VARCHAR(10) NOT NULL,
-  insertedDate DATE NOT NULL
+  realNum DECIMAL(10, 2),
+  insertedDate DATE NOT NULL,
+  PRIMARY KEY (period)
 );
+
+
 
 
   -- alter table daily add realNum VARCHAR(10) NOT NULL

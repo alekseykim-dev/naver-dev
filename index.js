@@ -25,13 +25,13 @@ pool
     console.error("Error connecting to the database:", error);
   });
 
-const client_id = "ydW3Klw44WWR61PEHJCY";
-const client_secret = "GtmR8inH9d";
+const client_id = process.env.CLIENT_ID;
+const client_secret = process.env.CLIENT_SECRET;
 const api_url = "https://openapi.naver.com/v1/datalab/search";
 
 const request_body = {
   startDate: "2016-01-01",
-  endDate: "2023-06-22",
+  endDate:  new Date().toISOString().slice(0, 10),
   timeUnit: "date",
   keywordGroups: [
     {
@@ -39,7 +39,7 @@ const request_body = {
       keywords: ["서울"],
     },
   ],
-}; 
+};
 
 app.listen(3000, async () => {
   console.log("Server is running on PORT 3000");
@@ -60,20 +60,22 @@ app.listen(3000, async () => {
     try {
       const conn = await pool.getConnection();
 
-
       const insertQuery =
-        "INSERT INTO daily (timeUnit, keywords, period, ratio, insertedDate) VALUES (?, ?, ?, ?, CURDATE())";
+        "INSERT INTO daily (timeUnit, keywords, period, ratio, realNum, insertedDate) VALUES (?, ?, ?, ?, ?, CURDATE())";
       for (const keywordGroup of keywordGroups) {
         for (const { period, ratio } of keywordGroup.data) {
+          const getRealNumQuery = "SELECT realNum FROM ratio_data WHERE period = ? ORDER BY period DESC LIMIT 1";
+          const [realNumRow] = await conn.query(getRealNumQuery, [period]);
+          const realNum = realNumRow && realNumRow.realNum ? realNumRow.realNum : null;
           await conn.query(insertQuery, [
             timeUnit,
             keywordGroup.keywords, // Insert as string
             period,
             ratio,
+            realNum,
           ]);
         }
       }
-
 
       conn.release();
       console.log("Data inserted into the database");
