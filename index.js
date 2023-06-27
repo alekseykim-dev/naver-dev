@@ -43,6 +43,8 @@ const request_body = {
 
 // ...
 
+// ...
+
 app.listen(3000, async () => {
   console.log("Server is running on PORT 3000");
 
@@ -77,14 +79,24 @@ app.listen(3000, async () => {
             const getRealNumQuery = "SELECT realNum FROM ratio_data WHERE period = ? ORDER BY period DESC LIMIT 1";
             const [realNumRow] = await conn.query(getRealNumQuery, [period]);
             const realNum = realNumRow && realNumRow.realNum ? realNumRow.realNum : null;
-            
+
+            const thirtyDaysQuery = "SELECT monthlyTotalQcCnt FROM 30days ORDER BY period DESC LIMIT 1";
+            const [thirtyDaysRow] = await conn.query(thirtyDaysQuery);
+            const thirtyDaysTotalQcCnt = thirtyDaysRow && thirtyDaysRow.monthlyTotalQcCnt ? thirtyDaysRow.monthlyTotalQcCnt : null;
+
+            const twentyNineDaysQuery = "SELECT SUM(realNum) as sumRealNum FROM daily WHERE realNum IS NOT NULL AND period < ? ORDER BY period DESC LIMIT 29";
+            const [twentyNineDaysRow] = await conn.query(twentyNineDaysQuery, [currentDate]);
+            const twentyNineDaysSumRealNum = twentyNineDaysRow && twentyNineDaysRow.sumRealNum ? twentyNineDaysRow.sumRealNum : 0;
+
+            const calculatedRealNum = thirtyDaysTotalQcCnt - twentyNineDaysSumRealNum;
+
             try {
               await conn.query(insertQuery, [
                 timeUnit,
                 keywordGroup.keywords, // Insert as string
                 period,
                 ratio,
-                realNum,
+                calculatedRealNum,
               ]);
             } catch (error) {
               if (error.code === "ER_DUP_ENTRY") {
@@ -106,3 +118,5 @@ app.listen(3000, async () => {
     console.error("Error requesting data from API:", error.response?.data || error.message);
   }
 });
+
+// ...
