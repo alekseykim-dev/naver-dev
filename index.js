@@ -31,7 +31,7 @@ const api_url = "https://openapi.naver.com/v1/datalab/search";
 
 const request_body = {
   startDate: "2016-01-01",
-  endDate:  new Date().toISOString().slice(0, 10),
+  endDate: new Date().toISOString().slice(0, 10),
   timeUnit: "date",
   keywordGroups: [
     {
@@ -40,6 +40,8 @@ const request_body = {
     },
   ],
 };
+
+// ...
 
 app.listen(3000, async () => {
   console.log("Server is running on PORT 3000");
@@ -60,20 +62,38 @@ app.listen(3000, async () => {
     try {
       const conn = await pool.getConnection();
 
+      const selectQuery = "SELECT period FROM daily";
+      const existingData = await conn.query(selectQuery);
+      const existingDates = existingData.map((row) => row.period.toISOString().slice(0, 10));
+
       const insertQuery =
         "INSERT INTO daily (timeUnit, keywords, period, ratio, realNum, insertedDate) VALUES (?, ?, ?, ?, ?, CURDATE())";
+      
       for (const keywordGroup of keywordGroups) {
         for (const { period, ratio } of keywordGroup.data) {
-          const getRealNumQuery = "SELECT realNum FROM ratio_data WHERE period = ? ORDER BY period DESC LIMIT 1";
-          const [realNumRow] = await conn.query(getRealNumQuery, [period]);
-          const realNum = realNumRow && realNumRow.realNum ? realNumRow.realNum : null;
-          await conn.query(insertQuery, [
-            timeUnit,
-            keywordGroup.keywords, // Insert as string
-            period,
-            ratio,
-            realNum,
-          ]);
+          const currentDate = new Date(period).toISOString().slice(0, 10);
+
+          if (!existingDates.includes(currentDate)) {
+            const getRealNumQuery = "SELECT realNum FROM ratio_data WHERE period = ? ORDER BY period DESC LIMIT 1";
+            const [realNumRow] = await conn.query(getRealNumQuery, [period]);
+            const realNum = realNumRow && realNumRow.realNum ? realNumRow.realNum : null;
+            
+            try {
+              await conn.query(insertQuery, [
+                timeUnit,
+                keywordGroup.keywords, // Insert as string
+                period,
+                ratio,
+                realNum,
+              ]);
+            } catch (error) {
+              if (error.code === "ER_DUP_ENTRY") {
+                console.log(`Skipping duplicate entry for date: ${currentDate}`);
+              } else {
+                throw error;
+              }
+            }
+          }
         }
       }
 
