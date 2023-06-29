@@ -56,9 +56,22 @@ CREATE TABLE IF NOT EXISTS 30days (
 
 
 
+CREATE TABLE IF NOT EXISTS keywords_table (
+  keyword VARCHAR(255) UNIQUE,
+  status VARCHAR(255),
+  reg_date DATE
+);
+
+
+
+
+
 CREATE TABLE IF NOT EXISTS ratio_data (
   period DATE NOT NULL,
   ratio DECIMAL(18, 6),
   realNum DECIMAL(10, 2),
   insertedDate DATE
 );
+
+
+

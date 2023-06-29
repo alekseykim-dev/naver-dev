@@ -84,39 +84,16 @@ class MyApp {
 
       const keywordGroups = data.results;
       const timeUnit = data.timeUnit;
-      
+      const device = "";
+
       try {
         const conn = await this.pool.getConnection();
-
-        // Retrieve keywords from keywordGroups and insert into keywords_table
-        const insertKeywordsQuery =
-          "INSERT IGNORE INTO keywords_table (keyword, status, reg_date) VALUES (?, 'R', CURDATE())";
-
-          for (const keywordGroup of keywordGroups) {
-            const { keywords } = keywordGroup;
-            for (const keyword of keywords) {
-              try {
-                const insertResult = await conn.query(insertKeywordsQuery, [keyword]);
-                if (insertResult.affectedRows === 1) {
-                  console.log(`Keyword '${keyword}' inserted into the 'keywords_table'`);
-                } else {
-                  console.log(`Skipping duplicate entry for keyword: ${keyword}`);
-                }
-              } catch (error) {
-                throw error;
-              }
-            }
-          }
 
         const selectQuery = "SELECT period FROM daily";
         const existingData = await conn.query(selectQuery);
         const existingDates = existingData.map((row) =>
           row.period.toISOString().slice(0, 10)
         );
-        const selectKeywordQuery = "SELECT keyword FROM keywords_table LIMIT 1";
-        const [keywordRow] = await conn.query(selectKeywordQuery);
-        const keyword = keywordRow?.keyword || ""; // Set a default value if no keyword is found
-        console.log('keyword: ', keyword)
 
         const insertQuery =
           "INSERT INTO daily (timeUnit, keywords, period, ratio, realNum, insertedDate) VALUES (?, ?, ?, ?, ?, CURDATE())";
@@ -135,19 +112,18 @@ class MyApp {
               // New feature: Process null rows
               if (realNum === null) {
                 const getPrevRealNumsQuery =
-                  "SELECT realNum FROM daily WHERE realNum IS NOT NULL ORDER BY period DESC LIMIT 29";
-                  const prevRealNumRows = await conn.query(getPrevRealNumsQuery, [period]);
-                  console.log("prevRealNumRows:", prevRealNumRows);
-                  const prevRealNums = Array.isArray(prevRealNumRows)
-                    ? prevRealNumRows.map((row) => Number(row.realNum))
-                    : [];
-                  const sumPrevRealNums = prevRealNums.reduce(
-                    (sum, prevRealNum) => sum + prevRealNum,
-                    0
-                  );
-
-                
-                console.log('sumPrevRealNums:', sumPrevRealNums)
+                  "SELECT realNum FROM daily WHERE period < ? AND realNum IS NOT NULL ORDER BY period DESC LIMIT 29";
+                const [prevRealNumRows] = await conn.query(
+                  getPrevRealNumsQuery,
+                  [period]
+                );
+                const prevRealNums = Array.isArray(prevRealNumRows)
+                  ? prevRealNumRows.map((row) => row.realNum)
+                  : [];
+                const sumPrevRealNums = prevRealNums.reduce(
+                  (sum, prevRealNum) => sum + prevRealNum,
+                  0
+                );
                 const getLatestMonthlyTotalQcCntQuery =
                   "SELECT monthlyTotalQcCnt FROM 30days ORDER BY period DESC LIMIT 1";
                 const [latestMonthlyTotalQcCntRow] = await conn.query(
@@ -157,7 +133,6 @@ class MyApp {
                   latestMonthlyTotalQcCntRow?.monthlyTotalQcCnt || 0;
 
                 realNum = latestMonthlyTotalQcCnt - sumPrevRealNums;
-                console.log('realNum:', realNum)
               }
 
               try {
@@ -168,7 +143,6 @@ class MyApp {
                   ratio,
                   realNum,
                 ]);
-                console.log(`Data inserted for keyword '${keyword}' and period '${currentDate}'`);
               } catch (error) {
                 if (error.code === "ER_DUP_ENTRY") {
                   console.log(
@@ -182,7 +156,28 @@ class MyApp {
           }
         }
 
+        // New feature: Send unique keywords from 'daily' table to 'keywords_table'
+        const selectUniqueKeywordsQuery = "SELECT DISTINCT keywords FROM daily";
+        const uniqueKeywordsResult = await conn.query(
+          selectUniqueKeywordsQuery
+        );
+        const uniqueKeywordsRows = uniqueKeywordsResult;
 
+        const uniqueKeywords = uniqueKeywordsRows.map((row) => row.keywords);
+
+        const insertKeywordsQuery =
+          "INSERT IGNORE INTO keywords_table (keyword, status, reg_date) VALUES (?, 'R', CURDATE())";
+
+        for (const keyword of uniqueKeywords) {
+          try {
+            await conn.query(insertKeywordsQuery, [keyword]);
+            console.log(
+              `Keyword '${keyword}' inserted into the 'keywords_table'`
+            );
+          } catch (error) {
+            throw error;
+          }
+        }
 
         conn.release();
         console.log("First API Data inserted into the database");
@@ -234,10 +229,6 @@ class MyApp {
           }
         }
       }
-      const updateStatusQuery = "UPDATE keywords_table SET status = 'A' WHERE status = 'R'"; //TODO: success date later
-      await conn.query(updateStatusQuery);
-  
-      console.log("Keyword status updated to 'A'");
 
       conn.release();
     } catch (error) {
