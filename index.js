@@ -55,8 +55,8 @@ class MyApp {
       "X-Signature": this.signature,
     };
 
-    this.key = "서울";
-    this.url = this.baseURL + this.path + `?hintKeywords=${this.key}`;
+    this.key = this.request_body.keywordGroups[0].keywords[0];
+    this.url = this.baseURL + this.path + `?hintKeywords=${encodeURIComponent(this.key)}`;
   }
 
   async connectToDatabase() {
@@ -84,7 +84,7 @@ class MyApp {
 
       const keywordGroups = data.results;
       const timeUnit = data.timeUnit;
-      
+
       try {
         const conn = await this.pool.getConnection();
 
@@ -92,21 +92,25 @@ class MyApp {
         const insertKeywordsQuery =
           "INSERT IGNORE INTO keywords_table (keyword, status, reg_date) VALUES (?, 'R', CURDATE())";
 
-          for (const keywordGroup of keywordGroups) {
-            const { keywords } = keywordGroup;
-            for (const keyword of keywords) {
-              try {
-                const insertResult = await conn.query(insertKeywordsQuery, [keyword]);
-                if (insertResult.affectedRows === 1) {
-                  console.log(`Keyword '${keyword}' inserted into the 'keywords_table'`);
-                } else {
-                  console.log(`Skipping duplicate entry for keyword: ${keyword}`);
-                }
-              } catch (error) {
-                throw error;
+        for (const keywordGroup of keywordGroups) {
+          const { keywords } = keywordGroup;
+          for (const keyword of keywords) {
+            try {
+              const insertResult = await conn.query(insertKeywordsQuery, [
+                keyword,
+              ]);
+              if (insertResult.affectedRows === 1) {
+                console.log(
+                  `Keyword '${keyword}' inserted into the 'keywords_table'`
+                );
+              } else {
+                console.log(`Skipping duplicate entry for keyword: ${keyword}`);
               }
+            } catch (error) {
+              throw error;
             }
           }
+        }
 
         const selectQuery = "SELECT period FROM daily";
         const existingData = await conn.query(selectQuery);
@@ -116,7 +120,7 @@ class MyApp {
         const selectKeywordQuery = "SELECT keyword FROM keywords_table LIMIT 1";
         const [keywordRow] = await conn.query(selectKeywordQuery);
         const keyword = keywordRow?.keyword || ""; // Set a default value if no keyword is found
-        console.log('keyword: ', keyword)
+        console.log("keyword: ", keyword);
 
         const insertQuery =
           "INSERT INTO daily (timeUnit, keywords, period, ratio, realNum, insertedDate) VALUES (?, ?, ?, ?, ?, CURDATE())";
@@ -136,18 +140,19 @@ class MyApp {
               if (realNum === null) {
                 const getPrevRealNumsQuery =
                   "SELECT realNum FROM daily WHERE realNum IS NOT NULL ORDER BY period DESC LIMIT 29";
-                  const prevRealNumRows = await conn.query(getPrevRealNumsQuery, [period]);
-                  console.log("prevRealNumRows:", prevRealNumRows);
-                  const prevRealNums = Array.isArray(prevRealNumRows)
-                    ? prevRealNumRows.map((row) => Number(row.realNum))
-                    : [];
-                  const sumPrevRealNums = prevRealNums.reduce(
-                    (sum, prevRealNum) => sum + prevRealNum,
-                    0
-                  );
+                const prevRealNumRows = await conn.query(getPrevRealNumsQuery, [
+                  period,
+                ]);
+                console.log("prevRealNumRows:", prevRealNumRows);
+                const prevRealNums = Array.isArray(prevRealNumRows)
+                  ? prevRealNumRows.map((row) => Number(row.realNum))
+                  : [];
+                const sumPrevRealNums = prevRealNums.reduce(
+                  (sum, prevRealNum) => sum + prevRealNum,
+                  0
+                );
 
-                
-                console.log('sumPrevRealNums:', sumPrevRealNums)
+                console.log("sumPrevRealNums:", sumPrevRealNums);
                 const getLatestMonthlyTotalQcCntQuery =
                   "SELECT monthlyTotalQcCnt FROM 30days ORDER BY period DESC LIMIT 1";
                 const [latestMonthlyTotalQcCntRow] = await conn.query(
@@ -157,7 +162,7 @@ class MyApp {
                   latestMonthlyTotalQcCntRow?.monthlyTotalQcCnt || 0;
 
                 realNum = latestMonthlyTotalQcCnt - sumPrevRealNums;
-                console.log('realNum:', realNum)
+                console.log("realNum:", realNum);
               }
 
               try {
@@ -168,7 +173,9 @@ class MyApp {
                   ratio,
                   realNum,
                 ]);
-                console.log(`Data inserted for keyword '${keyword}' and period '${currentDate}'`);
+                console.log(
+                  `Data inserted for keyword '${keyword}' and period '${currentDate}'`
+                );
               } catch (error) {
                 if (error.code === "ER_DUP_ENTRY") {
                   console.log(
@@ -181,8 +188,6 @@ class MyApp {
             }
           }
         }
-
-
 
         conn.release();
         console.log("First API Data inserted into the database");
@@ -234,9 +239,33 @@ class MyApp {
           }
         }
       }
-      const updateStatusQuery = "UPDATE keywords_table SET status = 'A' WHERE status = 'R'"; //TODO: success date later
-      await conn.query(updateStatusQuery);
-  
+
+      // Modify the keywords_table to add the update_date column
+      const addActiveDateColumnQuery = "ALTER TABLE keywords_table MODIFY update_date VARCHAR(10) DEFAULT 'N/A'";
+await conn.query(addActiveDateColumnQuery);
+
+const updateActiveDateQuery = `
+  UPDATE keywords_table
+  SET
+  update_date = IF(
+      keyword IN (
+        SELECT relKeyword
+        FROM 30days
+        WHERE period = DATE_SUB(CURDATE(), INTERVAL 1 DAY)
+      )
+      AND keyword IN (
+        SELECT keywords
+        FROM daily
+        WHERE period = DATE_SUB(CURDATE(), INTERVAL 1 DAY)
+      ),
+      CURDATE(),
+      update_date
+    ),
+    status = IF(update_date = CURDATE(), 'A', status)
+`;
+await conn.query(updateActiveDateQuery);
+
+
       console.log("Keyword status updated to 'A'");
 
       conn.release();
