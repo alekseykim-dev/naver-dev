@@ -55,10 +55,7 @@ class MyApp {
     };
 
     this.key = this.request_body.keywordGroups[0].keywords[0];
-    this.url =
-      this.baseURL +
-      this.path +
-      `?hintKeywords=${encodeURIComponent(this.key)}`;
+    this.url = this.baseURL + this.path + `?hintKeywords=${encodeURIComponent(this.key)}`;
   }
 
   async connectToDatabase() {
@@ -92,7 +89,7 @@ class MyApp {
 
         // Retrieve keywords from keywordGroups and insert into keywords_table
         const insertKeywordsQuery =
-          "INSERT IGNORE INTO keywords_table (keyword, status, reg_date) VALUES (?, ?, CURDATE())";
+          "INSERT IGNORE INTO keywords_table (keyword, status, reg_date) VALUES (?, 'R', CURDATE())";
 
         for (const keywordGroup of keywordGroups) {
           const { keywords } = keywordGroup;
@@ -100,9 +97,7 @@ class MyApp {
             try {
               const insertResult = await conn.query(insertKeywordsQuery, [
                 keyword,
-                "R",
               ]);
-
               if (insertResult.affectedRows === 1) {
                 console.log(
                   `Keyword '${keyword}' inserted into the 'keywords_table'`
@@ -115,23 +110,6 @@ class MyApp {
             }
           }
         }
-
-        const updateStatusQuery = `
-  UPDATE keywords_table
-  SET update_date = IF(
-    status = 'A',
-    CURDATE(),
-    update_date
-  ),
-  status = IF(
-    status = 'A',
-    status,
-    CONCAT('Error: Invalid status for keyword "', keyword, '"')
-  )
-`;
-        await conn.query(updateStatusQuery);
-
-        console.log("Keyword status and update_date updated");
 
         const selectQuery = "SELECT period FROM daily";
         const existingData = await conn.query(selectQuery);
@@ -181,10 +159,7 @@ class MyApp {
                 );
                 const latestMonthlyTotalQcCnt =
                   latestMonthlyTotalQcCntRow?.monthlyTotalQcCnt || 0;
-                console.log(
-                  "latestMonthlyTotalQcCnt:",
-                  latestMonthlyTotalQcCnt
-                );
+                  console.log('latestMonthlyTotalQcCnt:', latestMonthlyTotalQcCnt)
 
                 realNum = latestMonthlyTotalQcCnt - sumPrevRealNums;
                 console.log("realNum:", realNum);
@@ -266,20 +241,30 @@ class MyApp {
       }
 
       // Modify the keywords_table to add the update_date column
-      const addActiveDateColumnQuery =
-        "ALTER TABLE keywords_table MODIFY update_date VARCHAR(10) DEFAULT 'N/A'";
-      await conn.query(addActiveDateColumnQuery);
+      const addActiveDateColumnQuery = "ALTER TABLE keywords_table MODIFY update_date VARCHAR(10) DEFAULT 'N/A'";
+await conn.query(addActiveDateColumnQuery);
 
-      const updateActiveDateQuery = `
+const updateActiveDateQuery = `
   UPDATE keywords_table
   SET
-    status = IF(
-      (SELECT insertedDate FROM daily WHERE keywords = keywords_table.keyword ORDER BY period DESC LIMIT 1) = CURDATE(),
-      'A',
-      status
-    )
+  update_date = IF(
+      keyword IN (
+        SELECT relKeyword
+        FROM 30days
+        WHERE period = DATE_SUB(CURDATE(), INTERVAL 1 DAY)
+      )
+      AND keyword IN (
+        SELECT keywords
+        FROM daily
+        WHERE period = DATE_SUB(CURDATE(), INTERVAL 1 DAY)
+      ),
+      CURDATE(),
+      update_date
+    ),
+    status = IF(update_date = CURDATE(), 'A', status)
 `;
-      await conn.query(updateActiveDateQuery);
+await conn.query(updateActiveDateQuery);
+
 
       console.log("Keyword status updated to 'A'");
 
@@ -311,3 +296,7 @@ class MyApp {
 
 const myApp = new MyApp();
 myApp.start();
+
+
+
+// now, add a feature so that the 'update_date'  in keywords_table is updated to current_date if the 'status'  is 'A'. if the status is not 'A', 
